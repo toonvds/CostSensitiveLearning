@@ -7,8 +7,6 @@ from scipy.special import expit, xlog1py
 from experiments import experimental_design
 from performance_metrics import performance_metrics
 
-# Todo: xlog1py?
-
 
 class CSLogit:
 
@@ -29,20 +27,22 @@ class CSLogit:
         def get_obj_func(theta):
             if self.obj == 'ce':
                 return self.ce(theta, x, y)
+            if self.obj == 'ce10':
+                return self.ce10(theta, x, y)
             elif self.obj == 'weightedce':
                 return self.weighted_ce(theta, x, y, misclass_cost)
             elif self.obj == 'aec':
                 return self.aec(theta, x, y, cost_matrix)
+            elif self.obj == 'logaec':
+                return self.logaec(theta, x, y, cost_matrix)
+            else:
+                raise Exception('No correct loss specified')
 
         self.theta, func_min, _ = self.optimization(get_obj_func, self.initial_theta)
 
         return func_min
 
     def optimization(self, obj_func, initial_theta):
-        # Todo:
-        #   Compare results for different solvers
-        #   Solver has to be available for normal LogisticRegression
-        #
         opt_res = scipy.optimize.minimize(obj_func, initial_theta, method='L-BFGS-B',
                                           options={'ftol': 1e-6, 'disp': False})
         theta_opt, func_min, n_iter = opt_res.x, opt_res.fun, opt_res.nfev
@@ -57,6 +57,18 @@ class CSLogit:
         eps = 1e-9  # small value to avoid log(0)
 
         ce = - (y_true * np.log(scores + eps) + (1 - y_true) * np.log(1 - scores + eps))
+
+        # Add regularization
+        ce += self.lambda1 * np.sum(abs(theta[1:])) + self.lambda2 * np.sum(theta[1:] ** 2)
+
+        return ce.mean()
+
+    def ce10(self, theta, x, y_true):
+        scores = expit(theta[0] + x.dot(theta[1:]))
+
+        eps = 1e-9  # small value to avoid log(0)
+
+        ce = - (y_true * np.log10(scores + eps) + (1 - y_true) * np.log10(1 - scores + eps))
 
         # Add regularization
         ce += self.lambda1 * np.sum(abs(theta[1:])) + self.lambda2 * np.sum(theta[1:] ** 2)
@@ -90,7 +102,29 @@ class CSLogit:
         # Add regularization
         aec += self.lambda1 * np.sum(abs(theta[1:])) + self.lambda2 * np.sum(theta[1:] ** 2)
 
+        # print(aec.mean())
+
         return aec.mean()
+
+    def logaec(self, theta, x, y, cost_matrix):  # Average Expected Cost
+
+        scores = expit(theta[0] + x.dot(theta[1:]))  # eq 9
+
+        eps = 1e-9
+
+        # objective value = logaec + lambd * L1 norm of betas (without intercept)
+        # Reversed cost matrix compared to AEC!
+        logaec = y * (np.log(scores + eps) * cost_matrix[:, 0, 1] + np.log(1 - scores + eps) * cost_matrix[:, 1, 1]) \
+            + (1 - y) * (np.log(1 - scores + eps) * cost_matrix[:, 1, 0] + np.log(scores + eps) * cost_matrix[:, 0, 0])
+
+        logaec = - logaec  # Negative because of the logarithm
+
+        # print(logaec.mean())
+
+        # Add regularization
+        logaec += self.lambda1 * np.sum(abs(theta[1:])) + self.lambda2 * np.sum(theta[1:] ** 2)
+
+        return logaec.mean()
 
     def predict(self, x_predict):
 
@@ -120,10 +154,12 @@ class CSLogit:
                     val_loss = self.weighted_ce(logit.theta_opt, x_val, y_val, misclass_cost_val)
                 elif self.obj == 'aec':
                     val_loss = self.aec(logit.theta_opt, x_val, y_val, cost_matrix_val)
-                print('\t\tLambda l1 = %.4f;\tLoss = %.5f' % (lambda1, val_loss))
+                elif self.obj == 'logaec':
+                    val_loss = self.logaec(logit.theta_opt, x_val, y_val, cost_matrix_val)
+                print('\t\tLambda l1 = %.5f;\tLoss = %.5f' % (lambda1, val_loss))
                 losses_list.append(val_loss)
             lambda1_opt = lambda1_list[np.argmin(losses_list)]
-            print('\tOptimal lambda = %.4f' % lambda1_opt)
+            print('\tOptimal lambda = %.5f' % lambda1_opt)
             self.lambda1 = lambda1_opt
 
         elif l2:
@@ -145,10 +181,12 @@ class CSLogit:
                     val_loss = self.weighted_ce(logit.theta_opt, x_val, y_val, misclass_cost_val)
                 elif self.obj == 'aec':
                     val_loss = self.aec(logit.theta_opt, x_val, y_val, cost_matrix_val)
-                print('\t\tLambda l1 = %.4f;\tLoss %.5f' % (lambda2, val_loss))
+                elif self.obj == 'logaec':
+                    val_loss = self.logaec(logit.theta_opt, x_val, y_val, cost_matrix_val)
+                print('\t\tLambda l1 = %.5f;\tLoss %.5f' % (lambda2, val_loss))
                 losses_list.append(val_loss)
             lambda2_opt = lambda2_list[np.argmin(losses_list)]
-            print('\tOptimal lambda = %.4f' % lambda2_opt)
+            print('\tOptimal lambda = %.5f' % lambda2_opt)
             self.lambda2 = lambda2_opt
         else:
             self.lambda1 = 0
