@@ -2,10 +2,12 @@ import xgboost as xgb
 from scipy.special import expit
 import numpy as np
 
-# Todo: make wrapper?
+
 class CSBoost:
     def __init__(self, obj, lambda1=0, lambda2=0):
         self.obj = obj
+        self.lambda1 = lambda1
+        self.lambda2 = lambda2
 
         # alpha is l1, lambda is l2
         params = {'random_state': 42, 'tree_method': 'exact', 'verbosity': 0, 'reg_alpha': lambda1,
@@ -48,7 +50,7 @@ class CSBoost:
             # diff_costs_train = fixed_cost - y_train * amounts_train
 
             train_constant = (y_train * (cost_matrix_train[:, 1, 1] - cost_matrix_train[:, 0, 1])
-                             + (1 - y_train) * (cost_matrix_train[:, 1, 0] - cost_matrix_train[:, 0, 0]))
+                              + (1 - y_train) * (cost_matrix_train[:, 1, 0] - cost_matrix_train[:, 0, 0]))
 
             def aec_train(raw_scores, y_true):
                 scores = expit(raw_scores)
@@ -69,6 +71,10 @@ class CSBoost:
                 hess = np.abs((1 - 2 * scores) * grad)
                 # hess = scores * (1 - scores) * (1 - 2 * scores) * train_constant
 
+                # Grad and hess cannot be too close to 0!
+                # print(grad.mean())
+                # print(hess.mean())
+
                 return grad, hess
 
             def aec_val(raw_scores, y_true):
@@ -82,7 +88,6 @@ class CSBoost:
                 #     scores * cost_matrix_val[:, 1, 0] + (1 - scores) * cost_matrix_val[:, 0, 0])
 
                 # Avoid computations with y_true (DMatrix)
-                # Todo: what happens if y_true is a vector?
                 if y_true:
                     ec = scores * cost_matrix_val[:, 1, 1] + (1 - scores) * cost_matrix_val[:, 0, 1]
                 else:
@@ -137,14 +142,14 @@ class CSBoost:
 
                         aec = ec.mean()
 
-                        return 'AEC', aec  # Todo: do not return 'AEC'
+                        return 'AEC', aec
 
                     aec = aec_val(scores, y_val)
                     val_loss = aec[1]
-                print('\t\tLambda l1 = %.4f;\tLoss = %.5f' % (lambda1, val_loss))
+                print('\t\tLambda l1 = %.5f;\tLoss = %.5f' % (lambda1, val_loss))
                 losses_list.append(val_loss)
             lambda1_opt = lambda1_list[np.argmin(losses_list)]
-            print('\tOptimal lambda = %.4f' % lambda1_opt)
+            print('\tOptimal lambda = %.5f' % lambda1_opt)
             self.params['reg_alpha'] = lambda1_opt
         elif l2:
             self.params['reg_alpha'] = 0
@@ -185,10 +190,10 @@ class CSBoost:
 
                     aec = aec_val(scores, y_val)
                     val_loss = aec[1]
-                print('\t\tLambda l2 = %.4f;\tLoss = %.5f' % (lambda2, val_loss))
+                print('\t\tLambda l2 = %.5f;\tLoss = %.5f' % (lambda2, val_loss))
                 losses_list.append(val_loss)
             lambda2_opt = lambda2_list[np.argmin(losses_list)]
-            print('\tOptimal lambda = %.4f' % lambda2_opt)
+            print('\tOptimal lambda = %.5f' % lambda2_opt)
             self.params['reg_alpha'] = lambda2_opt
         else:
             self.lambda1 = 0

@@ -40,12 +40,7 @@ class CostSensitiveDataset(Dataset):
 
 
 class CSNeuralNetwork(nn.Module):
-    def __init__(self, n_inputs, cost_sensitive=False, obj='ce', lambda1=0, lambda2=0, n_neurons=16):
-        # TODO:
-        #   One hidden layer - tune number of neurons as hyperparameter!
-        #   Compare relu with hyperbolic tangent
-        #   Only add BatchNorm in regularized version
-        #   Add more arguments to object initialization (e.g. objective function)
+    def __init__(self, n_inputs, obj='ce', lambda1=0, lambda2=0, n_neurons=16, directory=''):
         super().__init__()
 
         self.n_inputs = n_inputs
@@ -59,10 +54,10 @@ class CSNeuralNetwork(nn.Module):
         self.lambda1 = lambda1
         self.lambda2 = lambda2
 
+        self.directory = directory
+
     def forward(self, x):
         x = self.lin_layer1(x)
-        # x = F.relu(x)
-        # Todo: check difference with tanh?
         x = torch.tanh(x)
         x = self.final_layer(x)
         x = self.sigmoid(x)
@@ -70,9 +65,17 @@ class CSNeuralNetwork(nn.Module):
         return x
 
     def model_train(self, model, x_train, y_train, x_val, y_val, cost_matrix_train=None, cost_matrix_val=None,
-                    n_epochs=500, batch_size=2 ** 10, verbose=True):
+                    n_epochs=500, verbose=True):
+
+        # Settings:
+        batch_size = max(8, int(len(x_train) / 100))  # Originally 2 ** 10
+        batch_size = min(batch_size, 256)
 
         early_stopping_criterion = 25
+
+        # Move to GPU:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model.to(device)
 
         if self.cost_sensitive:
             train_ds = CostSensitiveDataset(torch.from_numpy(x_train).float(),
@@ -85,9 +88,8 @@ class CSNeuralNetwork(nn.Module):
             train_ds = CostInsensitiveDataset(torch.from_numpy(x_train).float(),
                                               torch.from_numpy(y_train[:, None]).float())
             val_ds = CostInsensitiveDataset(torch.from_numpy(x_val).float(), torch.from_numpy(y_val[:, None]).float())
-            criterion = nn.BCELoss()
 
-        optimizer = torch_optim.Adam(model.parameters(), lr=0.001)  # Todo: larger learning rate?
+        optimizer = torch_optim.Adam(model.parameters(), lr=0.001)
 
         train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
         val_dl = DataLoader(val_ds, batch_size=int(batch_size / 4), shuffle=True)
@@ -103,11 +105,15 @@ class CSNeuralNetwork(nn.Module):
 
             # Training
             model.train()
+
             for i, data in enumerate(train_dl):
                 if self.cost_sensitive:
                     inputs, labels, cost_matrix_batch = data
+                    inputs, labels, cost_matrix_batch = inputs.to(device), labels.to(device), cost_matrix_batch.to(
+                        device)
                 else:
                     inputs, labels = data
+                    inputs, labels = inputs.to(device), labels.to(device)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
@@ -116,9 +122,10 @@ class CSNeuralNetwork(nn.Module):
                 outputs = model(inputs)
 
                 if self.obj == 'ce':
+                    criterion = nn.BCELoss()
                     loss = criterion(outputs, labels)
                 elif self.obj == 'weightedce':
-                    misclass_cost_batch = torch.zeros((len(labels), 1), dtype=torch.double)
+                    misclass_cost_batch = torch.zeros((len(labels), 1), dtype=torch.double, device=device)
                     misclass_cost_batch[labels == 0] = cost_matrix_batch[:, 1, 0][:, None][labels == 0]
                     misclass_cost_batch[labels == 1] = cost_matrix_batch[:, 0, 1][:, None][labels == 1]
 
@@ -131,14 +138,16 @@ class CSNeuralNetwork(nn.Module):
                 # Add regularization
                 model_params = torch.cat([params.view(-1) for params in model.parameters()])
                 l1_regularization = self.lambda1 * torch.norm(model_params, 1)
-                # print('l1 regularization = %.4f' % l1_regularization)
+                # print('l1 regularization = %.5f' % l1_regularization)
                 l2_regularization = self.lambda2 * torch.norm(model_params, 2)**2  # torch.norm returns the square root
-                # print('l2 regularization = %.4f' % l2_regularization)
+                # print('l2 regularization = %.5f' % l2_regularization)
                 loss += l1_regularization + l2_regularization
 
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item()
+
+            mid_time = timer()
 
             # Validation check
             model.eval()
@@ -147,14 +156,17 @@ class CSNeuralNetwork(nn.Module):
                 for val_i, val_data in enumerate(val_dl):
                     if self.obj == 'ce':
                         val_inputs, val_labels = val_data
+                        val_inputs, val_labels = val_inputs.to(device), val_labels.to(device)
                         val_outputs = model(val_inputs)
                         val_loss = criterion(val_outputs, val_labels)
 
                     elif self.obj == 'weightedce':
                         val_inputs, val_labels, val_cost_matrix = val_data
+                        val_inputs, val_labels, val_cost_matrix = val_inputs.to(device), val_labels.to(
+                                                                    device), val_cost_matrix.to(device)
                         val_outputs = model(val_inputs)
 
-                        misclass_cost_val = torch.zeros((len(val_labels), 1), dtype=torch.double)
+                        misclass_cost_val = torch.zeros((len(val_labels), 1), dtype=torch.double, device=device)
                         misclass_cost_val[val_labels == 0] = val_cost_matrix[:, 1, 0][:, None][val_labels == 0]
                         misclass_cost_val[val_labels == 1] = val_cost_matrix[:, 0, 1][:, None][val_labels == 1]
 
@@ -162,6 +174,8 @@ class CSNeuralNetwork(nn.Module):
 
                     elif self.obj == 'aec':
                         val_inputs, val_labels, val_cost_matrix = val_data
+                        val_inputs, val_labels, val_cost_matrix = val_inputs.to(device), val_labels.to(
+                                                                    device), val_cost_matrix.to(device)
                         val_outputs = model(val_inputs)
                         val_loss = self.expected_cost(val_outputs, val_labels, val_cost_matrix)
 
@@ -172,10 +186,9 @@ class CSNeuralNetwork(nn.Module):
             if total_val_loss < best_val_loss:
 
                 # Is improvement large enough?
-                # If difference in val_loss is < 10**-1  # Todo: increase?
-                if best_val_loss - total_val_loss < 10**-1:
+                # Not if difference in val_loss is < 10**-2
+                if best_val_loss - total_val_loss < 10**-2:
                     epochs_not_improved += 1
-                    # Todo: delete next line
                     # print('\t\tDifference: {}'.format(best_val_loss - total_val_loss))
                     if epochs_not_improved > early_stopping_criterion:
                         print(
@@ -194,12 +207,13 @@ class CSNeuralNetwork(nn.Module):
                     'best validation loss': best_val_loss,
                     'model': model.state_dict(),
                     'optimizer': optimizer.state_dict()}
-                torch.save(checkpoint, 'checkpoint')
+                torch.save(checkpoint, self.directory + 'checkpoint')
 
                 if verbose:
                     if epoch % 1 == 0:
-                        print('\t\t[Epoch %d]\tloss: %.8f\tval_loss: %.8f\tTime [s]: %.2f\tModel saved!' % (
-                        epoch + 1, running_loss / len(train_ds), total_val_loss / len(val_ds) / 4, end-start))
+                        print('\t\t[Epoch %d]\tloss: %.8f\tval_loss: %.8f\tTime [s]: %.2f (%.2f)\tModel saved!' % (
+                        epoch + 1, running_loss / len(train_ds), total_val_loss / len(val_ds) / 4, end - start,
+                        mid_time - start))
 
             else:
                 epochs_not_improved += 1
@@ -211,10 +225,12 @@ class CSNeuralNetwork(nn.Module):
 
                 if verbose:
                     if epoch % 10 == 9:
-                        print('\t\t[Epoch %d]\tloss: %.8f\tval_loss: %.8f\tTime [s]: %.2f' % (
-                            epoch + 1, running_loss / len(train_ds), total_val_loss / len(val_ds) / 4, end-start))
+                        print('\t\t[Epoch %d]\tloss: %.8f\tval_loss: %.8f\tTime [s]: %.2f (%.2f)\tModel saved!' % (
+                        epoch + 1, running_loss / len(train_ds), total_val_loss / len(val_ds) / 4, end - start,
+                        mid_time - start))
 
-        best_checkpoint = torch.load('checkpoint')
+        # Load last saved checkpoint:
+        best_checkpoint = torch.load(self.directory + 'checkpoint')
         model.load_state_dict(best_checkpoint['model'])
 
         if verbose:
@@ -224,7 +240,7 @@ class CSNeuralNetwork(nn.Module):
         if best_checkpoint['epoch'] > (n_epochs - early_stopping_criterion):
             warnings.warn('Number of epochs might have to be increased!')
 
-        return model
+        return model.to('cpu')
 
     def model_predict(self, model, X_test):
         y_pred = torch.zeros(len(X_test)).float()
@@ -242,7 +258,7 @@ class CSNeuralNetwork(nn.Module):
                 prob = model(x)
                 preds.append(prob.flatten())
 
-        return preds[0].numpy()  # TODO: not too clean ...
+        return preds[0].numpy()
 
     def expected_cost(self, output, target, cost_matrix):
 
@@ -264,8 +280,8 @@ class CSNeuralNetwork(nn.Module):
                 self.lambda2 = 0
                 losses_list_l1 = []
                 for lambda1 in lambda1_list:
-                    net = CSNeuralNetwork(n_inputs=x_train.shape[1], cost_sensitive=self.cost_sensitive, obj=self.obj,
-                                          lambda1=lambda1, n_neurons=n_neurons)
+                    net = CSNeuralNetwork(n_inputs=x_train.shape[1], obj=self.obj, lambda1=lambda1, n_neurons=n_neurons,
+                                          directory=self.directory)
 
                     net = net.model_train(net, x_train, y_train, x_val, y_val,
                                           cost_matrix_train=cost_matrix_train, cost_matrix_val=cost_matrix_val)
@@ -299,10 +315,10 @@ class CSNeuralNetwork(nn.Module):
 
                         aec = aec_val(scores_val, y_val)
                         val_loss = aec
-                    print('\t\tLambda l1 = %.4f;\tLoss = %.5f' % (lambda1, val_loss))
+                    print('\t\tLambda l1 = %.5f;\tLoss = %.5f' % (lambda1, val_loss))
                     losses_list_l1.append(val_loss)
                 lambda1_opt = lambda1_list[np.argmin(losses_list_l1)]
-                print('\tOptimal lambda = %.4f' % lambda1_opt)
+                print('\tOptimal lambda = %.5f' % lambda1_opt)
                 self.lambda1 = lambda1_opt
 
                 results[1, i] = lambda1_opt
@@ -312,8 +328,8 @@ class CSNeuralNetwork(nn.Module):
                 self.lambda1 = 0
                 losses_list_l2 = []
                 for lambda2 in lambda2_list:
-                    net = CSNeuralNetwork(n_inputs=x_train.shape[1], cost_sensitive=self.cost_sensitive, obj=self.obj,
-                                          lambda2=lambda2, n_neurons=n_neurons)
+                    net = CSNeuralNetwork(n_inputs=x_train.shape[1], obj=self.obj, lambda2=lambda2, n_neurons=n_neurons,
+                                          directory=self.directory)
 
                     net = net.model_train(net, x_train, y_train, x_val, y_val,
                                           cost_matrix_train=cost_matrix_train, cost_matrix_val=cost_matrix_val)
@@ -347,10 +363,10 @@ class CSNeuralNetwork(nn.Module):
 
                         aec = aec_val(scores_val, y_val)
                         val_loss = aec
-                    print('\t\tLambda l2 = %.4f;\tLoss = %.5f' % (lambda2, val_loss))
+                    print('\t\tLambda l2 = %.5f;\tLoss = %.5f' % (lambda2, val_loss))
                     losses_list_l2.append(val_loss)
                 lambda2_opt = lambda2_list[np.argmin(losses_list_l2)]
-                print('\tOptimal lambda = %.4f' % lambda2_opt)
+                print('\tOptimal lambda = %.5f' % lambda2_opt)
                 self.lambda2 = lambda2_opt
 
                 results[1, i] = lambda2_opt
@@ -359,8 +375,8 @@ class CSNeuralNetwork(nn.Module):
             else:
                 self.lambda1 = 0
                 self.lambda2 = 0
-                net = CSNeuralNetwork(n_inputs=x_train.shape[1], cost_sensitive=self.cost_sensitive, obj=self.obj,
-                                      n_neurons=n_neurons)
+                net = CSNeuralNetwork(n_inputs=x_train.shape[1], obj=self.obj, n_neurons=n_neurons,
+                                      directory=self.directory)
 
                 net = net.model_train(net, x_train, y_train, x_val, y_val, cost_matrix_train=cost_matrix_train,
                                       cost_matrix_val=cost_matrix_val, verbose=True)
@@ -406,4 +422,4 @@ class CSNeuralNetwork(nn.Module):
             self.lambda2 = results[1, opt_ind]
             print('Optimal l2: {}'.format(self.lambda2))
 
-        return CSNeuralNetwork(self.n_inputs, self.cost_sensitive, self.obj, self.lambda1, self.lambda2, opt_n_neurons)
+        return CSNeuralNetwork(self.n_inputs, self.obj, self.lambda1, self.lambda2, opt_n_neurons, self.directory)
