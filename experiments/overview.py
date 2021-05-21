@@ -45,7 +45,6 @@ datasets = {'kaggle credit card fraud': False,
 methodologies = {'logit': True,
                  'wlogit': True,
                  'cslogit': True,
-                 'tslogit': True,
 
                  'net': True,
                  'wnet': True,
