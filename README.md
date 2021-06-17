@@ -4,9 +4,10 @@ This is the code for the paper on "Instance-dependent cost-sensitive Learning: A
 
 The code for cslogit and csboost are Python versions of the [original cslogit by Sebastiaan Höppner et al.](https://github.com/SebastiaanHoppner/CostSensitiveLearning). 
 
+Todo:
 Requirements
 
-Venv easy setup
+Venv setup
 
 Citation
 
