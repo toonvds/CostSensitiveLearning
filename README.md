@@ -1,6 +1,6 @@
 # CostSensitiveLearning
 
-This is the code for the paper on ["Predict-then-optimize or predict-and-optimize? An empirical evaluation of cost-sensitive learning strategies"](https://www.sciencedirect.com/science/article/pii/S0020025522001542).
+This is the code for the paper ["Predict-then-optimize or predict-and-optimize? An empirical evaluation of cost-sensitive learning strategies"](https://www.sciencedirect.com/science/article/pii/S0020025522001542).
 
 An experiment is conducted by running the `experiments/overview.py` file where settings, data set, methodologies, and evaluators can be chosen.
 
