@@ -33,3 +33,5 @@ If you use this software, please cite it as follows:
 
 
 Contact the author at [toon.vanderschueren@gmail.com](mailto:toon.vanderschueren@gmail.com).
+
+All content in this repository is licensed under the MIT license.
