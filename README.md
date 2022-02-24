@@ -22,12 +22,14 @@ The code for cslogit and csboost are Python versions of the [original cslogit by
 
 ## Reference
 If you use this software, please cite it as follows:
-@article{vanderschueren2022predict,
+`
+@article{vanderschueren2022predict, 
   title={Predict-then-optimize or predict-and-optimize? An empirical evaluation of cost-sensitive learning strategies},
   author={Vanderschueren, Toon, Verdonck, Tim, Baesens, Bart and Verbeke, Wouter},
   journal={Information Sciences},
   year={2022},
   publisher={Elsevier}
 }
+`
 
 Contact the author at [toon.vanderschueren@gmail.com](mailto:toon.vanderschueren@gmail.com).
