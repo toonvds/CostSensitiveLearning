@@ -1,8 +1,11 @@
 # CostSensitiveLearning
 
-This is the code for the paper ["Predict-then-optimize or predict-and-optimize? An empirical evaluation of cost-sensitive learning strategies"](https://www.sciencedirect.com/science/article/pii/S0020025522001542).
+This repository contains the code for the papers:
+1. ["Predict-then-optimize or predict-and-optimize? An empirical evaluation of cost-sensitive learning strategies"](https://www.sciencedirect.com/science/article/pii/S0020025522001542).
+2. [A new perspective on classification: Optimally allocating limited resources to uncertain tasks](https://www.sciencedirect.com/science/article/abs/pii/S0167923623002269).
 
-An experiment is conducted by running the `experiments/overview.py` file where settings, data set, methodologies, and evaluators can be chosen.
+For (1), an experiment is conducted by running the `experiments/overview.py` file where settings, data set, methodologies, and evaluators can be chosen.
+For (2), experiments can similarly be replicated using `experiments/overview_ranking.py`.
 
 ## Data
 
@@ -18,19 +21,32 @@ Due to size limitations, not all data is provided in this repository. Data sets 
 - [VUB Credit Scoring](https://github.com/vub-dl/data-csl-pdcs)
 
 ## Acknowledgments
-The code for cslogit and csboost are Python versions of the [original cslogit by Sebastiaan Höppner et al.](https://github.com/SebastiaanHoppner/CostSensitiveLearning).
+The code for cslogit and csboost are Python versions of the [original cslogit by Sebastiaan Höppner et al.](https://github.com/SebastiaanHoppner/CostSensitiveLearning). Thank you to Lennert Van der Schraelen for sharing his Python adaptation.
 
 ## Reference
 If you use this software, please cite it as follows:
 
-@article{vanderschueren2022predict,  
-  title={Predict-then-optimize or predict-and-optimize? An empirical evaluation of cost-sensitive learning strategies}, 
-  author={Vanderschueren, Toon, Verdonck, Tim, Baesens, Bart and Verbeke, Wouter},  
-  journal={Information Sciences},  
-  year={2022},  
-  publisher={Elsevier}  
+```tex
+@article{vanderschueren2022predict,
+  title={Predict-then-optimize or predict-and-optimize? An empirical evaluation of cost-sensitive learning strategies},
+  author={Vanderschueren, Toon and Verdonck, Tim and Baesens, Bart and Verbeke, Wouter},
+  journal={Information Sciences},
+  volume={594},
+  pages={400--415},
+  year={2022},
+  publisher={Elsevier}
 }
-
+```
+```tex
+@article{vanderschueren2023new,
+  title={A new perspective on classification: Optimally allocating limited resources to uncertain tasks},
+  author={Vanderschueren, Toon and Baesens, Bart and Verdonck, Tim and Verbeke, Wouter},
+  journal={Decision Support Systems},
+  pages={114151},
+  year={2023},
+  publisher={Elsevier}
+}
+```
 
 Contact the author at [toon.vanderschueren@gmail.com](mailto:toon.vanderschueren@gmail.com).
 
