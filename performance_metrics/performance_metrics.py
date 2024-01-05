@@ -1,13 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn import metrics
-from scipy.stats import spearmanr, combine_pvalues, friedmanchisquare
+from scipy.stats import spearmanr, combine_pvalues, friedmanchisquare, lognorm
 from scikit_posthocs import posthoc_nemenyi_friedman
 from tabulate import tabulate
 from Orange.evaluation import compute_CD, graph_ranks
 from hmeasure import h_score
 import os
 import baycomp
+from openpyxl import workbook, load_workbook
+
 
 # from rpy2.robjects.packages import importr
 # import rpy2.robjects.numpy2ri
@@ -32,7 +34,6 @@ def savings(cost_matrix, labels, predictions):
 
 
 def cost_with_algorithm(cost_matrix, labels, predictions):
-
     cost_tn = cost_matrix[:, 0, 0][np.logical_and(predictions == 0, labels == 0)].sum()
     cost_fn = cost_matrix[:, 0, 1][np.logical_and(predictions == 0, labels == 1)].sum()
     cost_fp = cost_matrix[:, 1, 0][np.logical_and(predictions == 1, labels == 0)].sum()
@@ -42,7 +43,6 @@ def cost_with_algorithm(cost_matrix, labels, predictions):
 
 
 def cost_without_algorithm(cost_matrix, labels):
-
     # Predict everything as the default class that leads to minimal cost
     # Also include cost of TP/TN!
     cost_neg = cost_matrix[:, 0, 0][labels == 0].sum() + cost_matrix[:, 0, 1][labels == 1].sum()
@@ -89,9 +89,9 @@ def get_performance_metrics(evaluators, evaluation_matrices, i, index, cost_matr
                             info):
     if evaluators['traditional']:
         true_pos = (predictions * labels).sum()
-        true_neg = ((1-predictions) * (1-labels)).sum()
-        false_pos = (predictions * (1-labels)).sum()
-        false_neg = ((1-predictions) * labels).sum()
+        true_neg = ((1 - predictions) * (1 - labels)).sum()
+        false_pos = (predictions * (1 - labels)).sum()
+        false_neg = ((1 - predictions) * labels).sum()
 
         accuracy = (true_pos + true_neg) / len(labels)
         recall = true_pos / (true_pos + false_neg)
@@ -129,7 +129,8 @@ def get_performance_metrics(evaluators, evaluation_matrices, i, index, cost_matr
 
     if evaluators['AEC']:
         expected_cost = labels * (probabilities * cost_matrix[:, 1, 1] + (1 - probabilities) * cost_matrix[:, 0, 1]) \
-            + (1 - labels) * (probabilities * cost_matrix[:, 1, 0] + (1 - probabilities) * cost_matrix[:, 0, 0])
+                        + (1 - labels) * (
+                                probabilities * cost_matrix[:, 1, 0] + (1 - probabilities) * cost_matrix[:, 0, 0])
 
         aec = expected_cost.mean()
 
@@ -156,7 +157,7 @@ def get_performance_metrics(evaluators, evaluation_matrices, i, index, cost_matr
         # Todo: explain this severity!
         severity = misclass_neg.mean() / misclass_pos.mean()
 
-        #h = hmeasure.HMeasure(labels, probabilities[:, None], severity)[0][0][0]
+        # h = hmeasure.HMeasure(labels, probabilities[:, None], severity)[0][0][0]
 
         h = h_score(labels, probabilities, severity)
 
@@ -182,12 +183,11 @@ def get_performance_metrics(evaluators, evaluation_matrices, i, index, cost_matr
         # AUC is not recommended here (see sklearn docs)
         # We will use Average Precision (AP)
         apiv = metrics.average_precision_score(y_true=labels, y_score=probabilities, sample_weight=misclass_costs)
-        #ap = metrics.auc(recall, precision)
+        # ap = metrics.auc(recall, precision)
 
         evaluation_matrices['PRIV'][index, i] = np.array([precisioniv, recalliv, apiv], dtype=object)
 
     if evaluators['rankings']:
-
         pos_probas = probabilities[labels == 1]
         # Get C_(0,1) (FN - misclassification cost of positive instances)
         misclass_costs_pos = cost_matrix[:, 0, 1][labels == 1]
@@ -201,26 +201,21 @@ def get_performance_metrics(evaluators, evaluation_matrices, i, index, cost_matr
 
         #  Compare rankings of probas with rankings of amounts for all positive instances
         spearman_test = spearmanr(prob_rankings, amount_rankings)
-        #spearman_test = spearmanr(pos_probas[sorted_indices_probas], pos_amounts[sorted_indices_probas])
-        #spearman_test = spearmanr(probabilities, amounts)
 
         evaluation_matrices['rankings'][index, i] = np.array([misclass_costs_pos[sorted_indices_probas], spearman_test],
                                                              dtype=object)
 
     if evaluators['brier']:
-
-        brier = ((probabilities - labels)**2).mean()
+        brier = ((probabilities - labels) ** 2).mean()
 
         evaluation_matrices['brier'][index, i] = brier
 
     if evaluators['recall_overlap']:
-
         recalled = labels[labels == 1] * predictions[labels == 1]
 
         evaluation_matrices['recall_overlap'][index, i] = recalled
 
     if evaluators['recall_correlation']:
-
         pos_probas = probabilities[labels == 1]
 
         # Sort indices from high to low
@@ -230,19 +225,15 @@ def get_performance_metrics(evaluators, evaluation_matrices, i, index, cost_matr
         evaluation_matrices['recall_correlation'][index, i] = prob_rankings
 
     if evaluators['time']:
-
         evaluation_matrices['time'][index, i] = info['time']
 
     if evaluators['lambda1']:
-
         evaluation_matrices['lambda1'][index, i] = info['lambda1']
 
     if evaluators['lambda2']:
-
         evaluation_matrices['lambda2'][index, i] = info['lambda2']
 
     if evaluators['n_neurons']:
-
         evaluation_matrices['n_neurons'][index, i] = info['n_neurons']
 
     return evaluation_matrices
@@ -550,7 +541,7 @@ def evaluate_experiments(evaluators, methodologies, evaluation_matrices, directo
         avg_rankings = np.mean(rankings, axis=1)
         sd_rankings = np.sqrt(rankings.var(axis=1))
         for i in range(1, len(table_auciv)):
-            table_auciv[i].append(avg_rankings[i-1])
+            table_auciv[i].append(avg_rankings[i - 1])
             table_auciv[i].append(sd_rankings[i - 1])
 
         print(tabulate(table_auciv, headers="firstrow", floatfmt=("", ".4f", ".4f", ".4f", ".4f")))
@@ -892,7 +883,9 @@ def evaluate_experiments(evaluators, methodologies, evaluation_matrices, directo
                 for j in range(n_methodologies):
                     # if j > i:
                     #    break
-                    recall_overlaps[n, i, j] = (evaluation_matrices['recall_overlap'][i, n] == evaluation_matrices['recall_overlap'][j, n]).mean()
+                    recall_overlaps[n, i, j] = (
+                            evaluation_matrices['recall_overlap'][i, n] == evaluation_matrices['recall_overlap'][
+                        j, n]).mean()
 
         # Summarize over repeated experiments
         recall_overlaps = recall_overlaps.mean(axis=0)
@@ -928,7 +921,7 @@ def evaluate_experiments(evaluators, methodologies, evaluation_matrices, directo
                     #    break
                     # Todo: Spearman's correlation R
                     spearman_corr = spearmanr(evaluation_matrices['recall_correlation'][i, n],
-                                                             evaluation_matrices['recall_correlation'][j, n])
+                                              evaluation_matrices['recall_correlation'][j, n])
 
                     recall_correlations[n, i, j] = spearman_corr[0]
 
@@ -963,8 +956,8 @@ def evaluate_experiments(evaluators, methodologies, evaluation_matrices, directo
         for item, value in methodologies.items():
             if value:
                 table_time.append([item, evaluation_matrices['time'][index, :].mean(),
-                                    np.sqrt(evaluation_matrices['time'][index, :].var()), avg_rankings[index],
-                                    sd_rankings[index]])
+                                   np.sqrt(evaluation_matrices['time'][index, :].var()), avg_rankings[index],
+                                   sd_rankings[index]])
                 index += 1
 
         print(tabulate(table_time, headers="firstrow", floatfmt=("", ".6f", ".6f", ".4f", ".4f")))
@@ -1074,8 +1067,8 @@ def evaluate_experiments(evaluators, methodologies, evaluation_matrices, directo
         for item, value in methodologies.items():
             if value:
                 table_n_neurons.append([item, evaluation_matrices['n_neurons'][index, :].mean(),
-                                   np.sqrt(evaluation_matrices['n_neurons'][index, :].var()), avg_rankings[index],
-                                   sd_rankings[index]])
+                                        np.sqrt(evaluation_matrices['n_neurons'][index, :].var()), avg_rankings[index],
+                                        sd_rankings[index]])
                 index += 1
 
         print(tabulate(table_n_neurons, headers="firstrow", floatfmt=("", ".6f", ".6f")))
@@ -1129,10 +1122,514 @@ def evaluate_experiments(evaluators, methodologies, evaluation_matrices, directo
         for key in evaluation_matrices.keys():
             if evaluators[key]:
                 np.save(str(directory + 'Evaluation_matrices/' + 'eval_np_' + key + '_' + name + '.npy'),
-                            evaluation_matrices[key])  # '.txt', fmt='%s' Use for np.savetxt
+                        evaluation_matrices[key])  # '.txt', fmt='%s' Use for np.savetxt
 
         # for f in os.listdir(directory + 'Evaluation_matrices'):
         #     if f == 'desktop.ini':
         #         continue
         #     arr = np.load(directory + 'Evaluation_matrices/' + f, allow_pickle=True)
         #     print(arr)
+
+
+def get_performance_metrics_ranking(evaluators, evaluation_matrices, i, index, cost_matrix, labels, probabilities,
+                                    info=None):
+    if evaluators['spearman_rho']:
+        spearman_rho = rankings_spearman_rho(probabilities, labels, cost_matrix)[0]
+
+        evaluation_matrices['spearman_rho'][index, i] = spearman_rho
+
+    if evaluators['top10']:
+        top10 = sum(topKinstances(probabilities, labels, k=10))
+
+        evaluation_matrices['top10'][index, i] = top10
+
+    if evaluators['top100']:
+        top100 = sum(topKinstances(probabilities, labels, k=100))
+
+        evaluation_matrices['top100'][index, i] = top100
+
+    if evaluators['top500']:
+        top500 = sum(topKinstances(probabilities, labels))
+
+        evaluation_matrices['top500'][index, i] = top500
+
+    if evaluators['top1000']:
+        top1000 = sum(topKinstances(probabilities, labels, k=1000))
+
+        evaluation_matrices['top1000'][index, i] = top1000
+
+    if evaluators['top100costs']:
+        top100costs = topKcosts(probabilities, labels, cost_matrix, k=100)
+
+        evaluation_matrices['top100costs'][index, i] = top100costs
+
+    if evaluators['top500costs']:
+        top500costs = topKcosts(probabilities, labels, cost_matrix, k=500)
+
+        evaluation_matrices['top500costs'][index, i] = top500costs
+
+    if evaluators['top1000costs']:
+        top1000costs = topKcosts(probabilities, labels, cost_matrix, k=1000)
+
+        evaluation_matrices['top1000costs'][index, i] = top1000costs
+
+    if evaluators['top10profit']:
+        top10profit = topKprofit(probabilities, labels, cost_matrix, k=10)
+
+        evaluation_matrices['top10profit'][index, i] = top10profit
+
+    if evaluators['top100profit']:
+        top100profit = topKprofit(probabilities, labels, cost_matrix, k=100)
+
+        evaluation_matrices['top100profit'][index, i] = top100profit
+
+    if evaluators['top500profit']:
+        top500profit = topKprofit(probabilities, labels, cost_matrix, k=500)
+
+        evaluation_matrices['top500profit'][index, i] = top500profit
+
+    if evaluators['top1000profit']:
+        top1000profit = topKprofit(probabilities, labels, cost_matrix, k=1000)
+
+        evaluation_matrices['top1000profit'][index, i] = top1000profit
+
+    if evaluators['cumulative_recovered']:
+        sorted_labels = [x for _, x in sorted(zip(probabilities, labels))][::-1]
+
+        # Sort amounts:
+        sorted_amounts = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 0, 1]))][::-1]
+
+        sorted_recovered = [a * b for a, b in zip(sorted_labels, sorted_amounts)]
+
+        evaluation_matrices['cumulative_recovered'][index, i] = sorted_recovered
+
+    if evaluators['cumulative_profit']:
+        # Get rankings:
+        rankings = np.argsort(probabilities)[::-1]
+
+        # Sort labels and cost matrix:
+        sorted_labels = labels[rankings]
+        sorted_cost_matrix = np.copy(cost_matrix[rankings, :, :])
+
+        # sorted_labels = [x for _, x in sorted(zip(probabilities, labels))][::-1]
+        #
+        # sorted_cost_matrix = np.copy(cost_matrix)
+        # sorted_cost_matrix[:, 0, 0] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 0, 0]))][::-1]
+        # sorted_cost_matrix[:, 0, 1] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 0, 1]))][::-1]
+        # sorted_cost_matrix[:, 1, 0] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 1, 0]))][::-1]
+        # sorted_cost_matrix[:, 1, 1] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 1, 1]))][::-1]
+
+        # Calculate recovered profit (positive instances) and incurred costs (negative instances)
+        recovered = np.array(sorted_labels) * (sorted_cost_matrix[:, 0, 1] - sorted_cost_matrix[:, 1, 1])
+        costs = (1 - np.array(sorted_labels)) * (sorted_cost_matrix[:, 0, 0] - sorted_cost_matrix[:, 1, 0])
+
+        actual = recovered + costs
+
+        # Calculate best possible profit:
+
+        ideal_recovered = np.array(sorted(recovered)[::-1])
+        ideal_costs = np.array(sorted(costs)[::-1])
+
+        ideal = ideal_recovered + ideal_costs
+
+        evaluation_matrices['cumulative_profit'][index, i] = [actual, ideal]
+
+    if evaluators['AP']:
+        ap = metrics.label_ranking_average_precision_score(np.stack((labels, 1 - labels), axis=1),
+                                                           np.stack((probabilities, 1 - probabilities), axis=1))
+
+        evaluation_matrices['AP'][index, i] = ap
+
+    if evaluators['expected_precision']:
+        expected_prec = expected_precision(probabilities, labels)
+
+        evaluation_matrices['expected_precision'][index, i] = expected_prec
+
+    if evaluators['expected_profit']:
+        expected_prof = expected_profit(probabilities, labels, cost_matrix)
+
+        evaluation_matrices['expected_profit'][index, i] = expected_prof
+
+    # if evaluators['CE']:
+    #     ce = metrics.coverage_error(np.stack((labels, 1 - labels), axis=1),
+    #                     np.stack((probabilities, 1 - probabilities), axis=1))
+
+    return evaluation_matrices
+
+
+# Spearman rho (predictions / amounts)
+def rankings_spearman_rho(probabilities, labels, cost_matrix):
+    pos_probas = probabilities[labels == 1]
+    # Get C_(0,1) (FN - misclassification cost of positive instances)
+    misclass_costs_pos = cost_matrix[:, 0, 1][labels == 1]
+
+    # Sort indices from high to low
+    sorted_indices_probas = np.argsort(pos_probas)[::-1]
+    prob_rankings = np.argsort(sorted_indices_probas)
+
+    sorted_indices_amounts = np.argsort(misclass_costs_pos)[::-1]
+    amount_rankings = np.argsort(sorted_indices_amounts)
+
+    #  Compare rankings of probas with rankings of amounts for all positive instances
+    spearman_test = spearmanr(prob_rankings, amount_rankings)
+
+    return spearman_test
+
+
+# top k predicted labels
+def topKinstances(probabilities, labels, k=500):
+    sorted_labels = [x for _, x in sorted(zip(probabilities, labels))][::-1]
+
+    return sorted_labels[0:k]
+
+
+# top k predicted labels * their cost of being classified as positive
+def topKcosts(probabilities, labels, cost_matrix, k=500):
+    sorted_labels = [x for _, x in sorted(zip(probabilities, labels))][::-1]
+
+    # Sort cost matrix:
+    sorted_cost_matrix = cost_matrix
+    # sorted_cost_matrix[:, 0, 0] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 0, 0]))][::-1]
+    # sorted_cost_matrix[:, 0, 1] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 0, 1]))][::-1]
+    sorted_cost_matrix[:, 1, 0] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 1, 0]))][::-1]
+    sorted_cost_matrix[:, 1, 1] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 1, 1]))][::-1]
+
+    costs = np.array(sorted_labels) * sorted_cost_matrix[:, 1, 1] + \
+            (1 - np.array(sorted_labels)) * sorted_cost_matrix[:, 1, 0]
+
+    return costs[0:k].sum()
+
+
+# top k predicted labels * their amounts
+def topKrecovered(probabilities, labels, amounts, k=500):
+    sorted_labels = [x for _, x in sorted(zip(probabilities, labels))][::-1]
+
+    # Sort amounts:
+    sorted_amounts = [x for _, x in sorted(zip(probabilities, amounts))][::-1]
+
+    # costs = np.array(sorted_labels) * sorted_cost_matrix[:, 1, 1] + (1-np.array(sorted_labels)) * np.zeros((len(labels)))
+
+    recovered = np.array(sorted_amounts[0:k]) * np.array(sorted_labels[0:k])
+
+    return recovered.sum()
+
+
+# top k predicted labels * their amounts
+def topKprofit(probabilities, labels, cost_matrix, k=500):
+    # Sort labels and cost matrix:
+    # sorted_labels = [x for _, x in sorted(zip(probabilities, labels))][::-1]
+    #
+    # sorted_cost_matrix = np.copy(cost_matrix)
+    # sorted_cost_matrix[:, 0, 0] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 0, 0]))][::-1]
+    # sorted_cost_matrix[:, 0, 1] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 0, 1]))][::-1]
+    # sorted_cost_matrix[:, 1, 0] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 1, 0]))][::-1]
+    # sorted_cost_matrix[:, 1, 1] = [x for _, x in sorted(zip(probabilities, cost_matrix[:, 1, 1]))][::-1]
+
+    # Get rankings:
+    rankings = np.argsort(probabilities)[::-1]
+
+    # Sort labels and cost matrix:
+    sorted_labels = labels[rankings]
+    sorted_cost_matrix = np.copy(cost_matrix[rankings, :, :])
+
+    # Calculate recovered profit (positive instances) and incurred costs (negative instances)
+    recovered = np.array(sorted_labels) * (sorted_cost_matrix[:, 0, 1] - sorted_cost_matrix[:, 1, 1])
+
+    costs = (1 - np.array(sorted_labels)) * (sorted_cost_matrix[:, 0, 0] - sorted_cost_matrix[:, 1, 0])
+
+    actual = recovered + costs
+
+    # Calculate ideal:
+    ideal_recovered = np.array(sorted(recovered)[::-1])
+    ideal_costs = np.array(sorted(costs)[::-1])
+
+    ideal = ideal_recovered + ideal_costs
+
+    if ideal[0:k].sum() < 0:
+        print('Ideal smaller than 0!')
+
+    return actual[0:k].sum() / ideal[0:k].sum()
+
+
+# Expected precision given capacity probability distribution
+def expected_precision(probabilities, labels):
+    # Get rankings:
+    rankings = np.argsort(probabilities)[::-1]
+
+    # Sort labels and cost matrix:
+    actual = labels[rankings]
+
+    # Calculate ideal:
+    ideal = np.array(sorted(labels)[::-1])
+
+    topKprecisions = [actual[0:k].sum() / ideal[0:k].sum() for k in range(1, len(labels) + 1)]
+
+    indices = np.cumsum(np.ones(len(labels)))
+    probabilities = lognorm.pdf(x=indices, s=1, loc=0, scale=100)
+
+    return sum(topKprecisions*probabilities)
+
+
+# Expected profit given capacity probability distribution
+def expected_profit(probabilities, labels, cost_matrix):
+    # Get rankings:
+    rankings = np.argsort(probabilities)[::-1]
+
+    # Sort labels and cost matrix:
+    sorted_labels = labels[rankings]
+    sorted_cost_matrix = np.copy(cost_matrix[rankings, :, :])
+
+    # Calculate recovered profit (positive instances) and incurred costs (negative instances)
+    recovered = np.array(sorted_labels) * (sorted_cost_matrix[:, 0, 1] - sorted_cost_matrix[:, 1, 1])
+
+    costs = (1 - np.array(sorted_labels)) * (sorted_cost_matrix[:, 0, 0] - sorted_cost_matrix[:, 1, 0])
+
+    actual = recovered + costs
+
+    # Calculate ideal:
+    ideal_recovered = np.array(sorted(recovered)[::-1])
+    ideal_costs = np.array(sorted(costs)[::-1])
+
+    ideal = ideal_recovered + ideal_costs
+
+    topKprofits = [actual[0:k].sum() / ideal[0:k].sum() for k in range(1, len(labels) + 1)]
+
+    indices = np.cumsum(np.ones(len(labels)))
+    probabilities = lognorm.pdf(x=indices, s=1, loc=0, scale=100)
+
+    return sum(topKprofits * probabilities)
+
+
+def evaluate_ranking_experiments(evaluators, methodologies, evaluation_matrices, directory, name):
+    table_evaluation = []
+    n_methodologies = sum(methodologies.values())
+
+    names = []
+    for key in methodologies.keys():
+        if methodologies[key]:
+            names.append(key)
+
+    # Summarize and print metrics:
+    for key in evaluators.keys():
+        if evaluators[key]:
+            evaluate_metric(name=key, evaluation_matrix=evaluation_matrices[key],
+                            table_evaluation=table_evaluation, methodologies=methodologies)
+
+    # Write to Excel:
+    # wb = load_workbook(str(directory + 'CS Learning to rank - exploration results.xlsx'))
+    # sheet = wb['Sheet6']
+    #
+    # start_row = 4
+    # dataset_column = 2 + 3  # Change (2 + 1 to 2 + 10)
+    #
+    # for table in table_evaluation:
+    #     for model in range(1, len(table)):
+    #         metric = table[model][1]
+    #         sheet.cell(row=start_row + model, column=dataset_column).value = metric
+    #
+    #         ranking = table[model][3]
+    #         sheet.cell(row=start_row + model, column=dataset_column + 14).value = ranking
+    #
+    #     start_row += 7  # Adjust depending on number of models (3 + # models)
+    #
+    # wb.save(str(directory + 'CS Learning to rank - exploration results.xlsx'))
+
+    # Add to summary file
+    with open(str(directory), 'a') as file:
+        for i in table_evaluation:
+            file.write(tabulate(i, floatfmt=".4f") + '\n')
+
+        # if evaluators['LaTeX']:
+        #     print('Not yet implemented')
+        # file.write(tabulate(total_table, headers="firstrow", floatfmt=".4f", tablefmt='latex') + '\n')
+
+        # Save evaluation matrices to txt file
+        # if not os.path.isdir(directory + 'Evaluation_matrices/'):
+        #     os.mkdir(directory + 'Evaluation_matrices/')
+        # for key in evaluation_matrices.keys():
+        #     if evaluators[key]:
+        #         np.save(str(directory + 'Evaluation_matrices/' + 'eval_np_' + key + '_' + name + '.npy'),
+        #                 evaluation_matrices[key])
+
+
+def evaluate_metric(name, evaluation_matrix, table_evaluation, methodologies):
+    print('\nMetric: ' + name)
+
+    table = [['Method', name, 'sd', 'AR', 'sd']]
+
+    if name == 'cumulative_recovered' or name == 'cumulative_profit':
+        fig, ax = plt.subplots(dpi=500)
+        if name == 'cumulative_recovered':
+            ax.set_title('Cumulative amount recovered')
+            ax.set_ylabel('Amount recovered [%]')
+        elif name == 'cumulative_profit':
+            ax.set_title('Cumulative profit')
+            ax.set_ylabel('Profit')
+
+            all_aucs_ideal = []
+
+        ax.set_xlabel('Instances [%]')
+        all_aucs = []
+
+        index = 0
+        for item, value in methodologies.items():
+            if value:
+                # See https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc_crossval.html
+                total_cum_frac_amounts = []
+                mean_included = np.linspace(0, 1, 100)
+                aucs = []
+
+                if name == 'cumulative_profit':
+                    total_cum_frac_amounts_ideal = []
+                    aucs_ideal = []
+
+                for i in range(evaluation_matrix.shape[1]):
+                    if name == 'cumulative_recovered':
+                        sorted_recovered = evaluation_matrix[index, i]
+
+                        cum_frac_amounts = np.cumsum(sorted_recovered) / sum(sorted_recovered)
+
+                        interp_cum_frac_amounts = np.interp(mean_included,
+                                                            np.arange(0, len(cum_frac_amounts)) / len(cum_frac_amounts),
+                                                            cum_frac_amounts)
+                        total_cum_frac_amounts.append(interp_cum_frac_amounts)
+
+                        aucs.append(metrics.auc(mean_included, interp_cum_frac_amounts))
+                    elif name == 'cumulative_profit':
+                        actual, ideal = evaluation_matrix[index, i]
+
+                        # Get cumulative profit of model:
+                        cum_frac_amounts = np.cumsum(actual, dtype=np.float64)
+                        interp_cum_frac_amounts = np.interp(mean_included,
+                                                            np.arange(0, len(cum_frac_amounts)) / len(cum_frac_amounts),
+                                                            cum_frac_amounts)
+
+                        total_cum_frac_amounts.append(interp_cum_frac_amounts)
+
+                        # Calculate ideal:
+                        cum_frac_amounts_ideal = np.cumsum(ideal)
+                        interp_cum_frac_amounts_ideal = np.interp(mean_included,
+                                                                  np.arange(0, len(cum_frac_amounts_ideal)) / len(
+                                                                      cum_frac_amounts_ideal),
+                                                                  cum_frac_amounts_ideal)
+                        total_cum_frac_amounts_ideal.append(interp_cum_frac_amounts_ideal)
+
+                        # Calculate auc:
+                        aucs.append(metrics.auc(mean_included, interp_cum_frac_amounts))
+                        aucs_ideal.append(metrics.auc(mean_included, interp_cum_frac_amounts_ideal))
+
+                mean_cum_amounts = np.mean(total_cum_frac_amounts, axis=0)
+
+                ax.plot(mean_cum_amounts, label=item, lw=2, alpha=.8)
+
+                # std_precision = np.std(precisions, axis=0)
+                # precisions_upper = np.minimum(mean_precision + std_precision, 1)
+                # precisions_lower = np.maximum(mean_precision - std_precision, 0)
+                # ax2.fill_between(mean_recall, precisions_lower, precisions_upper, color='grey', alpha=.2)
+
+                all_aucs.append(aucs)
+                if name == 'cumulative_profit':
+                    all_aucs_ideal.append(aucs_ideal)
+
+                index += 1
+
+        # Add best possible/ideal:
+        if name == 'cumulative_recovered':
+            best_amounts = np.cumsum(np.sort(sorted_recovered)[::-1]) / sum(sorted_recovered)
+            best_amounts_100 = np.interp(mean_included, np.arange(0, len(best_amounts)) / len(best_amounts),
+                                         best_amounts)
+            ax.plot(best_amounts_100, linestyle='dashed', color='k', label='best possible')
+            ax.plot(np.cumsum(np.ones(100) / 100), linestyle='dotted', color='k', label='random')
+        if name == 'cumulative_profit':
+            ideal_profits = np.mean(total_cum_frac_amounts_ideal, axis=0)
+            ax.plot(ideal_profits, linestyle='dashed', color='k', label='best possible')
+            random_profits = np.interp(mean_included, [0, 1], [0, ideal_profits[-1]])
+            ax.plot(random_profits, linestyle='dotted', color='k', label='random')
+
+        ax.legend(bbox_to_anchor=(1.04, 1), prop={'size': 12})
+        fig.set_size_inches((7, 4))
+
+        # plt.savefig(str(directory + 'rankings.png'), bbox_inches='tight')
+        # plt.show()
+
+        # Compute rankings (- as higher is better)
+        all_aucs = np.array(all_aucs)
+        if name == 'cumulative_profit':
+            all_aucs_ideal = np.array(all_aucs_ideal)
+
+            # Calculate AUCS
+            # See https://github.com/maks-sh/scikit-uplift/blob/c9dd56aa0277e81ef7c4be62bf2fd33432e46f36/sklift/metrics/metrics.py#L323
+            auc_baseline = metrics.auc(mean_included, random_profits)
+            # auc_ideal = metrics.auc(mean_included, ideal_profits) - auc_baseline
+            all_aucs = (all_aucs - auc_baseline) / (all_aucs_ideal - auc_baseline)
+
+        ranked_args = (-all_aucs).argsort(axis=0)
+        rankings = np.arange(len(ranked_args))[ranked_args.argsort(axis=0)]
+        rankings = rankings + 1
+        avg_rankings = rankings.mean(axis=1)
+        sd_rankings = np.sqrt(rankings.var(axis=1))
+
+        # Summarize per method
+        index = 0
+        for item, value in methodologies.items():
+            if value:
+                table.append([item, all_aucs[index, :].mean(),
+                              np.sqrt(all_aucs[index, :].var()), avg_rankings[index],
+                              sd_rankings[index]])
+                index += 1
+
+        # Print
+        print(tabulate(table, headers="firstrow", floatfmt=("", ".4f", ".4f", ".4f", ".4f")))
+        table_evaluation.append(table)
+
+        # # Do tests if enough measurements are available (at least 3)
+        # if np.array(all_aucs).shape[1] > 2:
+        #     friedchisq = friedmanchisquare(*np.transpose(all_aucs))
+        #     print('\nF1 - Friedman test')
+        #     print('H0: Model performance follows the same distribution')
+        #     print('\tChi-square:\t%.4f' % friedchisq[0])
+        #     print('\tp-value:\t%.4f' % friedchisq[1])
+        #     if friedchisq[1] < 0.05:  # If p-value is significant, do Nemenyi post hoc test
+        #         # Post-hoc Nemenyi Friedman: Rows are blocks, columns are groups
+        #         nemenyi = posthoc_nemenyi_friedman(np.array(all_aucs).T.astype(dtype=np.float32))
+        #         print('\nNemenyi post hoc test:')
+        #         print(nemenyi)
+
+        return  # Stop function here
+
+    # Compute rankings (- as higher is better)
+    ranked_args = (-evaluation_matrix).argsort(axis=0)
+    rankings = np.arange(len(ranked_args))[ranked_args.argsort(axis=0)]
+    rankings = rankings + 1
+    avg_rankings = rankings.mean(axis=1)
+    sd_rankings = np.sqrt(rankings.var(axis=1))
+
+    # Summarize per method
+    index = 0
+    for item, value in methodologies.items():
+        if value:
+            table.append([item, evaluation_matrix[index, :].mean(),
+                          np.sqrt(evaluation_matrix[index, :].var()), avg_rankings[index],
+                          sd_rankings[index]])
+            index += 1
+
+    # Print
+    print(tabulate(table, headers="firstrow", floatfmt=("", ".4f", ".4f", ".4f", ".4f")))
+    table_evaluation.append(table)
+
+    # # Do tests if enough measurements are available (at least 3)
+    # if np.array(evaluation_matrix).shape[1] > 2:
+    #     friedchisq = friedmanchisquare(*np.transpose(evaluation_matrix))
+    #     print('\nF1 - Friedman test')
+    #     print('H0: Model performance follows the same distribution')
+    #     print('\tChi-square:\t%.4f' % friedchisq[0])
+    #     print('\tp-value:\t%.4f' % friedchisq[1])
+    #     if friedchisq[1] < 0.05:  # If p-value is significant, do Nemenyi post hoc test
+    #         # Post-hoc Nemenyi Friedman: Rows are blocks, columns are groups
+    #         nemenyi = posthoc_nemenyi_friedman(np.array(evaluation_matrix).T.astype(dtype=np.float32))
+    #         print('\nNemenyi post hoc test:')
+    #         print(nemenyi)
+
+    print('_________________________________________________________________________')
+    print('_________________________________________________________________________')
+
