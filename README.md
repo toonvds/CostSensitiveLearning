@@ -1,8 +1,8 @@
 # CostSensitiveLearning
 
 This repository contains the code for the papers:
-1. ["Predict-then-optimize or predict-and-optimize? An empirical evaluation of cost-sensitive learning strategies"](https://www.sciencedirect.com/science/article/pii/S0020025522001542).
-2. [A new perspective on classification: Optimally allocating limited resources to uncertain tasks](https://www.sciencedirect.com/science/article/abs/pii/S0167923623002269).
+1. ["**Predict-then-optimize or predict-and-optimize? An empirical evaluation of cost-sensitive learning strategies**" _Information Sciences_ (2022)](https://www.sciencedirect.com/science/article/pii/S0020025522001542).
+2. ["**A new perspective on classification: Optimally allocating limited resources to uncertain tasks**" _Decision Support Systems_ (2023)](https://www.sciencedirect.com/science/article/abs/pii/S0167923623002269).
 
 For (1), an experiment is conducted by running the `experiments/overview.py` file where settings, data set, methodologies, and evaluators can be chosen.
 For (2), experiments can similarly be replicated using `experiments/overview_ranking.py`.
@@ -21,7 +21,7 @@ Due to size limitations, not all data is provided in this repository. Data sets 
 - [VUB Credit Scoring](https://github.com/vub-dl/data-csl-pdcs)
 
 ## Acknowledgments
-The code for cslogit and csboost are Python versions of the [original cslogit by Sebastiaan Höppner et al.](https://github.com/SebastiaanHoppner/CostSensitiveLearning). Thank you to Lennert Van der Schraelen for sharing his Python adaptation.
+The code for cslogit and csboost are Python versions of the [original cslogit by Sebastiaan Höppner et al.](https://github.com/SebastiaanHoppner/CostSensitiveLearning). Thank you to Lennert Van der Schraelen for sharing his Python adaptation!
 
 ## Reference
 If you use this software, please cite it as follows:
@@ -48,6 +48,6 @@ If you use this software, please cite it as follows:
 }
 ```
 
-Contact the author at [toon.vanderschueren@gmail.com](mailto:toon.vanderschueren@gmail.com).
+Contact the corresponding author at [toon.vanderschueren@gmail.com](mailto:toon.vanderschueren@gmail.com).
 
 All content in this repository is licensed under the MIT license.
