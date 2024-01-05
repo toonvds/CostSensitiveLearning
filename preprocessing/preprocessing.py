@@ -66,7 +66,6 @@ def standardize(x_train, x_val, x_test):
 
 
 def handle_missing_data(df_train, df_val, df_test, categorical_variables):
-
     for key in df_train.keys():
         # If variable has > 90% missing values: delete
         if df_train[key].isna().mean() > 0.9:
@@ -127,7 +126,7 @@ def preprocess_credit_card_data(fixed_cost, eda=False):
     # covariates_scaled = scaler.fit_transform(covariates)
 
     # Create cost matrix
-    cost_matrix = np.zeros((len(covariates), 2, 2))     # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix = np.zeros((len(covariates), 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
     cost_matrix[:, 0, 0] = 0.0
     cost_matrix[:, 0, 1] = amounts
     cost_matrix[:, 1, 0] = fixed_cost
@@ -238,14 +237,13 @@ def preprocess_kdd98(eda=False):
 
     # Cost matrix   Todo: Follow Petrides and Verbeke 2020?
     n_samples = amounts.shape[0]
-    cost_matrix = np.zeros((n_samples, 2, 2))     # cost_matrix [[TN, FN], [FP, TP]]
-    cost_matrix[:, 0, 0] = 0                            # Instead of 0.68  (no cost for contacting)
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix[:, 0, 0] = 0  # Instead of 0.68  (no cost for contacting)
     cost_matrix[:, 0, 1] = amounts  # amounts[labels == 1].mean()  # Instead of 14.45 (no cost for contacting)
     cost_matrix[:, 1, 0] = 0.68
     cost_matrix[:, 1, 1] = 0.68
 
     return kdd98, labels, amounts, cost_matrix, categorical_variables
-
 
     # return covariates, labels, amounts, cost_matrix, categorical_variables
 
@@ -283,7 +281,7 @@ def preprocess_give_me_some_credit():
     cl_avg = cl.mean()
 
     n_samples = income.shape[0]
-    cost_matrix = np.zeros((n_samples, 2, 2))     # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
     cost_matrix[:, 0, 0] = 0.0
     cost_matrix[:, 0, 1] = v_calculate_cost_fn(cl, lgd)
     cost_matrix[:, 1, 0] = v_calculate_cost_fp(cl, int_r, n_term, int_cf, pi_1, lgd, cl_avg)
@@ -334,7 +332,7 @@ def preprocess_telco_customer_churn(eda=False):
     amounts = telco_churn['MonthlyCharges'].to_numpy()
 
     n_samples = amounts.shape[0]
-    cost_matrix = np.zeros((n_samples, 2, 2))     # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
     cost_matrix[:, 0, 0] = 0.0
     cost_matrix[:, 0, 1] = 12 * amounts
     cost_matrix[:, 1, 0] = 2 * amounts
@@ -351,7 +349,8 @@ def preprocess_default_credit_card(eda=False):
     try:
         df = pd.read_excel('data/UCI Default of Credit Card Clients/default of credit card clients.xls', skiprows=[0])
     except FileNotFoundError:
-        df = pd.read_excel('../data/UCI Default of Credit Card Clients/default of credit card clients.xls', skiprows=[0])
+        df = pd.read_excel('../data/UCI Default of Credit Card Clients/default of credit card clients.xls',
+                           skiprows=[0])
 
     # Drop id
     df = df.drop('ID', 1)
@@ -377,7 +376,7 @@ def preprocess_default_credit_card(eda=False):
     pi_1 = labels.mean()
 
     n_samples = credit_lines.shape[0]
-    cost_matrix = np.zeros((n_samples, 2, 2))     # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
     cost_matrix[:, 0, 0] = 0.0
     cost_matrix[:, 0, 1] = v_calculate_cost_fn(credit_lines, lgd)
     cost_matrix[:, 1, 0] = v_calculate_cost_fp(credit_lines, int_r, n_term, int_cf, pi_1, lgd, credit_lines.mean())
@@ -418,11 +417,10 @@ def preprocess_bank_marketing(eda=False):
     # Create the cost matrix - following Bahnsen et al (2015)
     fixed_cost = 1
     interest = df['balance'].to_numpy() * 0.2 * 0.02463333
-    expected_interest = np.maximum(interest, fixed_cost)   # Todo: Done for reasonableness condition, BUT SHOULD NOT HOLD on instance-level
-    # expected_interest = np.maximum(interest, 0)  # Todo: gives errors later on - division by zero -- FIX!
+    expected_interest = np.maximum(interest, fixed_cost)
 
     n_samples = df.shape[0]
-    cost_matrix = np.zeros((n_samples, 2, 2))     # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
     cost_matrix[:, 0, 0] = 0.0
     cost_matrix[:, 0, 1] = expected_interest
     cost_matrix[:, 1, 0] = fixed_cost
@@ -443,7 +441,6 @@ def preprocess_vub_credit_scoring(eda=False):
     # Drop ID + original test set partitioning
     df = df.drop('ID', 1)
     df = df.drop(['Test_set1', 'Test_set2', 'Test_set3'], 1)
-    # Todo: Differentiate between business channels?
     # df = df[df['Business_channel'] == 3]
 
     # Get labels
@@ -452,7 +449,6 @@ def preprocess_vub_credit_scoring(eda=False):
 
     # Todo: Set FICO_Score to average for missing values (see Petrides et al. 2020)
     df['FICO_Score'][df['FICO_Score'].isna()] = 0
-    # df = df.drop('FICO_Score', 1)
 
     # EDA
     if eda:
@@ -479,7 +475,7 @@ def preprocess_vub_credit_scoring(eda=False):
     pi_1 = labels.mean()
 
     n_samples = amounts.shape[0]
-    cost_matrix = np.zeros((n_samples, 2, 2))     # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
     cost_matrix[:, 0, 0] = 0.0
     cost_matrix[:, 0, 1] = v_calculate_cost_fn(amounts, lgd)
     cost_matrix[:, 1, 0] = v_calculate_cost_fp(amounts, int_r, n_term, int_cf, pi_1, lgd, amounts.mean())
@@ -547,7 +543,7 @@ def preprocess_kaggle_ieee_fraud(eda=False, subsample=1):
     if subsample < 1:
         print('Taking only a subset of the data')
         np.random.seed(42)
-        drop_indices = np.random.choice(df.index, int((1-subsample)*len(df)), replace=False)
+        drop_indices = np.random.choice(df.index, int((1 - subsample) * len(df)), replace=False)
         df = df.drop(drop_indices)
 
     if eda:
@@ -599,6 +595,348 @@ def preprocess_kaggle_ieee_fraud(eda=False, subsample=1):
     return df, labels, amounts, cost_matrix, categorical_variables
 
 
+def preprocess_apate_credit_card_fraud(eda=False):
+    try:
+        df = pd.read_csv('data/APATE Credit Card Fraud/ccf_anonymized.csv')
+    except FileNotFoundError:
+        df = pd.read_csv('../data/APATE Credit Card Fraud/ccf_anonymized.csv')
+
+    if eda:
+        for key in df.keys():
+            print(key)
+            print(pd.unique(df[key]))
+
+    # Categorical variables
+    categorical_variables = ['categorical1', 'categorical2', 'categorical3', 'categorical4', 'categorical5']
+
+    # Get labels and amounts
+    labels = df['fraud'].astype(int).to_numpy()
+    df = df.drop('fraud', 1)
+    amounts = df['amount'].to_numpy()
+
+    # Make cost matrix
+    fixed_cost = 10
+
+    n_samples = labels.shape[0]
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix[:, 0, 0] = 0.0
+    cost_matrix[:, 0, 1] = amounts
+    cost_matrix[:, 1, 0] = fixed_cost
+    cost_matrix[:, 1, 1] = fixed_cost
+
+    return df, labels, amounts, cost_matrix, categorical_variables
+
+
+def preprocess_hmeq(eda=False):
+    try:
+        df = pd.read_csv('data/Home Equity/hmeq.csv')
+    except FileNotFoundError:
+        df = pd.read_csv('../data/Home Equity/hmeq.csv')
+
+    # Get labels
+    labels = (df['BAD']).to_numpy().astype(np.int)
+    df = df.drop(['BAD'], 1)
+
+    # EDA
+    if eda:
+        for key in df.keys():
+            plt.figure(key)
+            plt.title(key)
+            markers, counts = np.unique(df[key], return_counts=True)
+            plt.hist(markers, weights=counts)
+            plt.show()
+
+    # List categorical variables
+    categorical_variables = ['REASON', 'JOB']
+
+    # Get amounts
+    amounts = df['LOAN'].to_numpy()
+
+    # Cost matrix based on Bahnsen:
+    pi_1 = labels.mean()
+    n_samples = amounts.shape[0]
+
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix[:, 0, 0] = 0.0
+    cost_matrix[:, 0, 1] = v_calculate_cost_fn(amounts, lgd)
+    cost_matrix[:, 1, 0] = v_calculate_cost_fp(amounts, int_r, n_term, int_cf, pi_1, lgd, amounts.mean())
+    cost_matrix[:, 1, 1] = 0.0
+
+    return df, labels, amounts, cost_matrix, categorical_variables
+
+
+# # No loan amounts available
+# def preprocess_pakdd(eda=False):
+#     names = ['ID_CLIENT',
+#              'CLERK_TYPE',
+#              'PAYMENT_DAY',
+#              'APPLICATION_SUBMISSION_TYPE',
+#              'QUANT_ADDITIONAL_CARDS',
+#              'POSTAL_ADDRESS_TYPE',
+#              'SEX',
+#              'MARITAL_STATUS',
+#              'QUANT_DEPENDANTS',
+#              'EDUCATION_LEVEL',
+#              'STATE_OF_BIRTH',
+#              'CITY_OF_BIRTH',
+#              'NACIONALITY',
+#              'RESIDENCIAL_STATE',
+#              'RESIDENCIAL_CITY',
+#              'RESIDENCIAL_BOROUGH',
+#              'FLAG_RESIDENCIAL_PHONE',
+#              'RESIDENCIAL_PHONE_AREA_CODE',
+#              'RESIDENCE_TYPE',
+#              'MONTHS_IN_RESIDENCE',
+#              'FLAG_MOBILE_PHONE',
+#              'FLAG_EMAIL',
+#              'PERSONAL_MONTHLY_INCOME',
+#              'OTHER_INCOMES',
+#              'FLAG_VISA',
+#              'FLAG_MASTERCARD',
+#              'FLAG_DINERS',
+#              'FLAG_AMERICAN_EXPRESS',
+#              'FLAG_OTHER_CARDS',
+#              'QUANT_BANKING_ACCOUNTS',
+#              'QUANT_SPECIAL_BANKING_ACCOUNTS',
+#              'PERSONAL_ASSETS_VALUE',
+#              'QUANT_CARS',
+#              'COMPANY',
+#              'PROFESSIONAL_STATE',
+#              'PROFESSIONAL_CITY',
+#              'PROFESSIONAL_BOROUGH',
+#              'FLAG_PROFESSIONAL_PHONE',
+#              'PROFESSIONAL_PHONE_AREA_CODE',
+#              'MONTHS_IN_THE_JOB',
+#              'PROFESSION_CODE',
+#              'OCCUPATION_TYPE',
+#              'MATE_PROFESSION_CODE',
+#              'EDUCATION_LEVEL2',
+#              'FLAG_HOME_ADDRESS_DOCUMENT',
+#              'FLAG_RG',
+#              'FLAG_CPF',
+#              'FLAG_INCOME_PROOF',
+#              'PRODUCT',
+#              'FLAG_ACSP_RECORD',
+#              'AGE',
+#              'RESIDENCIAL_ZIP_3',
+#              'PROFESSIONAL_ZIP_3',
+#              'TARGET_LABEL_BAD=1']
+#
+#     try:
+#         df_train = pd.read_csv(
+#             'data/PAKDD 2009 Data Mining Competition/PAKDD 2010/PAKDD-2010 training data/PAKDD2010_Modeling_Data.csv',
+#             delimiter=';', header=None, names=names)
+#         df_val = pd.read_csv(
+#             'data/PAKDD 2009 Data Mining Competition/PAKDD 2010/LeaderBoard_Data/PAKDD2010_Leaderboard_Data.txt',
+#             delimiter='\t', header=None, names=names)
+#         df_test = pd.read_csv(
+#             'data/PAKDD 2009 Data Mining Competition/PAKDD 2010/Prediction_Data/PAKDD2010_Prediction_Data.txt',
+#             delimiter='\t', header=None, names=names)
+#     except FileNotFoundError:
+#         df_train = pd.read_csv(
+#             '../data/PAKDD 2009 Data Mining Competition/PAKDD 2010/PAKDD-2010 training data/PAKDD2010_Modeling_Data.csv',
+#             delimiter=';', header=None, names=names)
+#         df_val = pd.read_csv(
+#             '../data/PAKDD 2009 Data Mining Competition/PAKDD 2010/LeaderBoard_Data/PAKDD2010_Leaderboard_Data.txt',
+#             delimiter='\t', header=None, names=names)
+#         df_test = pd.read_csv(
+#             '../data/PAKDD 2009 Data Mining Competition/PAKDD 2010/Prediction_Data/PAKDD2010_Prediction_Data.txt',
+#             delimiter='\t', header=None, names=names)
+#
+#     # Merge train, val and test set:
+#     df = pd.concat([df_train, df_val, df_test])
+#
+#     # Drop variables:
+#     df = df.drop(['ID_CLIENT', 'CLERK_TYPE'], 1)
+#
+#     # Get labels
+#     labels = (df['TARGET_LABEL_BAD=1']).to_numpy().astype(np.int)
+#     df = df.drop(['TARGET_LABEL_BAD=1'], 1)
+#
+#     # EDA
+#     if eda:
+#         for key in df.keys():
+#             plt.figure(key)
+#             plt.title(key)
+#             markers, counts = np.unique(df[key], return_counts=True)
+#             plt.hist(markers, weights=counts)
+#             plt.show()
+#
+#     # List categorical variables
+#     categorical_variables = ['PAYMENT_DAY',
+#                              'APPLICATION_SUBMISSION_TYPE',
+#                              'POSTAL_ADDRESS_TYPE',
+#                              'SEX',
+#                              'MARITAL_STATUS',
+#                              'EDUCATION_LEVEL',
+#                              'STATE_OF_BIRTH',
+#                              'CITY_OF_BIRTH',
+#                              'NACIONALITY',
+#                              'RESIDENCIAL_STATE',
+#                              'RESIDENCIAL_CITY',
+#                              'RESIDENCIAL_BOROUGH',
+#                              'FLAG_RESIDENCIAL_PHONE',
+#                              'RESIDENCIAL_PHONE_AREA_CODE',
+#                              'RESIDENCE_TYPE',
+#                              'MONTHS_IN_RESIDENCE',
+#                              'FLAG_MOBILE_PHONE',
+#                              'FLAG_EMAIL',
+#                              'FLAG_VISA',
+#                              'FLAG_MASTERCARD',
+#                              'FLAG_DINERS',
+#                              'FLAG_AMERICAN_EXPRESS',
+#                              'FLAG_OTHER_CARDS',
+#                              'QUANT_BANKING_ACCOUNTS',
+#                              'QUANT_SPECIAL_BANKING_ACCOUNTS',
+#                              'COMPANY',
+#                              'PROFESSIONAL_STATE',
+#                              'PROFESSIONAL_CITY',
+#                              'PROFESSIONAL_BOROUGH',
+#                              'FLAG_PROFESSIONAL_PHONE',
+#                              'PROFESSIONAL_PHONE_AREA_CODE',
+#                              'PROFESSION_CODE',
+#                              'OCCUPATION_TYPE',
+#                              'MATE_PROFESSION_CODE',
+#                              'EDUCATION_LEVEL2',
+#                              'FLAG_HOME_ADDRESS_DOCUMENT',
+#                              'FLAG_RG',
+#                              'FLAG_CPF',
+#                              'FLAG_INCOME_PROOF',
+#                              'PRODUCT',
+#                              'FLAG_ACSP_RECORD',
+#                              'RESIDENCIAL_ZIP_3',
+#                              'PROFESSIONAL_ZIP_3']
+#
+#     # Get amounts
+#     amounts = df['LOAN'].to_numpy()
+#
+#     # Cost matrix based on Bahnsen:
+#     pi_1 = labels.mean()
+#     n_samples = amounts.shape[0]
+#
+#     cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
+#     cost_matrix[:, 0, 0] = 0.0
+#     cost_matrix[:, 0, 1] = v_calculate_cost_fn(amounts, lgd)
+#     cost_matrix[:, 1, 0] = v_calculate_cost_fp(amounts, int_r, n_term, int_cf, pi_1, lgd, amounts.mean())
+#     cost_matrix[:, 1, 1] = 0.0
+#
+#     return df, labels, amounts, cost_matrix, categorical_variables
+
+
+def preprocess_uk(eda=False):
+    try:
+        df = pd.read_csv('data/UK Credit Scoring/UK/input_anonymized.csv')
+    except FileNotFoundError:
+        df = pd.read_csv('../data/UK Credit Scoring/UK/input_anonymized.csv')
+
+    # Get labels
+    labels = (df['LABEL']).to_numpy().astype(np.int)
+    df = df.drop(['LABEL'], 1)
+
+    # EDA
+    if eda:
+        for key in df.keys():
+            plt.figure(key)
+            plt.title(key)
+            markers, counts = np.unique(df[key], return_counts=True)
+            plt.hist(markers, weights=counts)
+            plt.show()
+
+    # List categorical variables
+    categorical_variables = ['CAT1', 'CAT2', 'CAT3', 'CAT4', 'CAT5', 'CAT6', 'CAT7']
+
+    # Get amounts
+    amounts = df['AMOUNT'].to_numpy()
+
+    # Cost matrix based on Bahnsen:
+    pi_1 = labels.mean()
+    n_samples = amounts.shape[0]
+
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix[:, 0, 0] = 0.0
+    cost_matrix[:, 0, 1] = v_calculate_cost_fn(amounts, lgd)
+    cost_matrix[:, 1, 0] = v_calculate_cost_fp(amounts, int_r, n_term, int_cf, pi_1, lgd, amounts.mean())
+    cost_matrix[:, 1, 1] = 0.0
+
+    return df, labels, amounts, cost_matrix, categorical_variables
+
+
+def preprocess_bene1(eda=False):
+    try:
+        df = pd.read_csv('data/BeNe1 Credit Scoring/bene1/bene1_anonymized.csv')
+    except FileNotFoundError:
+        df = pd.read_csv('../data/BeNe1 Credit Scoring/bene1/bene1_anonymized.csv')
+
+    # Get labels
+    labels = (df['LABEL']).to_numpy().astype(np.int)
+    df = df.drop(['LABEL'], 1)
+
+    # EDA
+    if eda:
+        for key in df.keys():
+            plt.figure(key)
+            plt.title(key)
+            markers, counts = np.unique(df[key], return_counts=True)
+            plt.hist(markers, weights=counts)
+            plt.show()
+
+    # List categorical variables
+    categorical_variables = ['CAT1', 'CAT2', 'CAT3', 'CAT4', 'CAT5', 'CAT6', 'CAT7', 'CAT8', 'CAT9']
+
+    # Get amounts
+    amounts = df['AMOUNT'].to_numpy()
+
+    # Cost matrix based on Bahnsen:
+    pi_1 = labels.mean()
+    n_samples = amounts.shape[0]
+
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix[:, 0, 0] = 0.0
+    cost_matrix[:, 0, 1] = v_calculate_cost_fn(amounts, lgd)
+    cost_matrix[:, 1, 0] = v_calculate_cost_fp(amounts, int_r, n_term, int_cf, pi_1, lgd, amounts.mean())
+    cost_matrix[:, 1, 1] = 0.0
+
+    return df, labels, amounts, cost_matrix, categorical_variables
+
+
+def preprocess_bene2(eda=False):
+    try:
+        df = pd.read_csv('data/BeNe2 Credit Scoring/bene2/input_anonymized.csv')
+    except FileNotFoundError:
+        df = pd.read_csv('../data/BeNe2 Credit Scoring/bene2/input_anonymized.csv')
+
+    # Get labels
+    labels = (df['LABEL']).to_numpy().astype(np.int)
+    df = df.drop(['LABEL'], 1)
+
+    # EDA
+    if eda:
+        for key in df.keys():
+            plt.figure(key)
+            plt.title(key)
+            markers, counts = np.unique(df[key], return_counts=True)
+            plt.hist(markers, weights=counts)
+            plt.show()
+
+    # List categorical variables
+    categorical_variables = ['CAT1', 'CAT2', 'CAT3', 'CAT4', 'CAT5', 'CAT6', 'CAT7', 'CAT8', 'CAT9', 'CAT10']
+
+    # Get amounts
+    amounts = df['AMOUNT'].to_numpy()
+
+    # Cost matrix based on Bahnsen:
+    pi_1 = labels.mean()
+    n_samples = amounts.shape[0]
+
+    cost_matrix = np.zeros((n_samples, 2, 2))  # cost_matrix [[TN, FN], [FP, TP]]
+    cost_matrix[:, 0, 0] = 0.0
+    cost_matrix[:, 0, 1] = v_calculate_cost_fn(amounts, lgd)
+    cost_matrix[:, 1, 0] = v_calculate_cost_fp(amounts, int_r, n_term, int_cf, pi_1, lgd, amounts.mean())
+    cost_matrix[:, 1, 1] = 0.0
+
+    return df, labels, amounts, cost_matrix, categorical_variables
+
+
 # Todo: make single function!
 # Credit scoring - cost_matrix (see Bahnsen et al 2014)
 # https://github.com/albahnsen/CostSensitiveClassification/blob/master/costcla/datasets/base.py
@@ -608,22 +946,26 @@ def calculate_a(cl_i, int_, n_term):
     """ Private function """
     return cl_i * ((int_ * (1 + int_) ** n_term) / ((1 + int_) ** n_term - 1))
 
+
 # Calculate present value (of amount a given interest rate int_ and n_term number of terms)
 def calculate_pv(a, int_, n_term):
     """ Private function """
     return a / int_ * (1 - 1 / (1 + int_) ** n_term)
 
+
 # Calculate credit line Cl
 def calculate_cl(k, inc_i, cl_max, debt_i, int_r, n_term):
     """ Private function """
-    cl_k = k * inc_i    # k times monthly income
+    cl_k = k * inc_i  # k times monthly income
     A = calculate_a(cl_k, int_r, n_term)
     Cl_debt = calculate_pv(inc_i * min(A / inc_i, 1 - debt_i), int_r, n_term)
     return min(cl_k, cl_max, Cl_debt)
 
+
 # Calculate cost of FN
 def calculate_cost_fn(cl_i, lgd):
     return cl_i * lgd
+
 
 # Calculate cost of FP
 def calculate_cost_fp(cl_i, int_r, n_term, int_cf, pi_1, lgd, cl_avg):
@@ -636,6 +978,7 @@ def calculate_cost_fp(cl_i, int_r, n_term, int_cf, pi_1, lgd, cl_avg):
     r_avg = calculate_pv(calculate_a(cl_avg, int_r, n_term), int_cf, n_term) - cl_avg
     cost_fp = r - (1 - pi_1) * r_avg + pi_1 * calculate_cost_fn(cl_avg, lgd)
     return max(0, cost_fp)
+
 
 # Apply functions to arrays
 v_calculate_cost_fp = np.vectorize(calculate_cost_fp)
